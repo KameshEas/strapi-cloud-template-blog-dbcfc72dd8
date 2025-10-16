@@ -1,13 +1,15 @@
 const fs = require('fs');
 const path = require('path');
 
-// ✅ Global override: allow self-signed certs (Supabase pooled SSL)
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-
 module.exports = ({ env }) => {
   const client = env('DATABASE_CLIENT', 'sqlite');
 
-  console.log('🔒 Using unverified SSL connection for Supabase (encrypted but CA ignored)');
+  if (env.bool('ALLOW_SELF_SIGNED_SSL', false)) {
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+    console.log('⚠️  TLS certificate verification disabled (self-signed SSL allowed)');
+  }
+
+  console.log('🔒 Using SSL connection for Supabase');
 
   const connections = {
     postgres: {
@@ -29,7 +31,11 @@ module.exports = ({ env }) => {
 
     sqlite: {
       connection: {
-        filename: path.join(__dirname, '..', env('DATABASE_FILENAME', '.tmp/data.db')),
+        filename: path.join(
+          __dirname,
+          '..',
+          env('DATABASE_FILENAME', '.tmp/data.db')
+        ),
       },
       useNullAsDefault: true,
     },
