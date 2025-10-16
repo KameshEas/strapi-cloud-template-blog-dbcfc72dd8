@@ -4,6 +4,18 @@ const path = require('path');
 module.exports = ({ env }) => {
   const client = env('DATABASE_CLIENT', 'sqlite');
 
+  let caCert;
+  const caPath = env('DATABASE_SSL_CA')
+    ? path.resolve(__dirname, '..', env('DATABASE_SSL_CA'))
+    : null;
+
+  if (caPath && fs.existsSync(caPath)) {
+    caCert = fs.readFileSync(caPath);
+  }
+  else if (env('DATABASE_SSL_CA_BASE64')) {
+    caCert = Buffer.from(env('DATABASE_SSL_CA_BASE64'), 'base64');
+  }
+
   const connections = {
     postgres: {
       connection: {
@@ -13,14 +25,10 @@ module.exports = ({ env }) => {
         database: env('DATABASE_NAME', 'postgres'),
         user: env('DATABASE_USERNAME', 'postgres'),
         password: env('DATABASE_PASSWORD', ''),
-        // ✅ Secure SSL using your real Supabase certificate
         ssl: env.bool('DATABASE_SSL', true)
-          ? {
-              ca: fs.readFileSync(
-                path.resolve(__dirname, '..', env('DATABASE_SSL_CA'))
-              ),
-              rejectUnauthorized: true, // verify against your CA
-            }
+          ? caCert
+            ? { ca: caCert, rejectUnauthorized: true }
+            : { require: true, rejectUnauthorized: false }
           : false,
         schema: env('DATABASE_SCHEMA', 'public'),
       },
