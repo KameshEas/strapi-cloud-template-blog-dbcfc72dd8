@@ -9,19 +9,19 @@ module.exports = ({ env }) => {
   try {
     const caPath = env('DATABASE_SSL_CA')
       ? path.resolve(__dirname, '..', env('DATABASE_SSL_CA'))
-      : path.resolve(__dirname, '..', '.certs/prod-ca-2021.crt'); 
+      : path.resolve(__dirname, '..', '.certs/prod-ca-2021.crt');
 
     if (fs.existsSync(caPath)) {
       caCert = fs.readFileSync(caPath);
-      console.log(`✅ Loaded SSL certificate from file: ${caPath}`);
+      console.log(`✅ (Info) SSL certificate loaded from: ${caPath}`);
     } else if (env('DATABASE_SSL_CA_BASE64')) {
       caCert = Buffer.from(env('DATABASE_SSL_CA_BASE64'), 'base64');
-      console.log('✅ Loaded SSL certificate from Base64 environment variable');
+      console.log('✅ (Info) SSL certificate loaded from Base64 variable');
     } else {
-      console.warn('⚠️ No SSL certificate found — falling back to unverified SSL');
+      console.warn('⚠️ (Info) No SSL certificate found — continuing with unverified SSL');
     }
   } catch (err) {
-    console.error('❌ Failed to load SSL certificate:', err.message);
+    console.error('❌ (Warning) Failed to load SSL certificate:', err.message);
   }
 
   const connections = {
@@ -34,9 +34,7 @@ module.exports = ({ env }) => {
         user: env('DATABASE_USERNAME', 'postgres'),
         password: env('DATABASE_PASSWORD', ''),
         ssl: env.bool('DATABASE_SSL', true)
-          ? caCert
-            ? { ca: caCert, rejectUnauthorized: true } 
-            : { require: true, rejectUnauthorized: false } 
+          ? { require: true, rejectUnauthorized: false }
           : false,
         schema: env('DATABASE_SCHEMA', 'public'),
       },
