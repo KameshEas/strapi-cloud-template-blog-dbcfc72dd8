@@ -1,28 +1,13 @@
 const fs = require('fs');
 const path = require('path');
 
+// ✅ Global override: allow self-signed certs (Supabase pooled SSL)
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 module.exports = ({ env }) => {
   const client = env('DATABASE_CLIENT', 'sqlite');
 
-  let caCert;
-
-  try {
-    const caPath = env('DATABASE_SSL_CA')
-      ? path.resolve(__dirname, '..', env('DATABASE_SSL_CA'))
-      : path.resolve(__dirname, '..', '.certs/prod-ca-2021.crt');
-
-    if (fs.existsSync(caPath)) {
-      caCert = fs.readFileSync(caPath);
-      console.log(`✅ (Info) SSL certificate loaded from: ${caPath}`);
-    } else if (env('DATABASE_SSL_CA_BASE64')) {
-      caCert = Buffer.from(env('DATABASE_SSL_CA_BASE64'), 'base64');
-      console.log('✅ (Info) SSL certificate loaded from Base64 variable');
-    } else {
-      console.warn('⚠️ (Info) No SSL certificate found — continuing with unverified SSL');
-    }
-  } catch (err) {
-    console.error('❌ (Warning) Failed to load SSL certificate:', err.message);
-  }
+  console.log('🔒 Using unverified SSL connection for Supabase (encrypted but CA ignored)');
 
   const connections = {
     postgres: {
@@ -33,9 +18,10 @@ module.exports = ({ env }) => {
         database: env('DATABASE_NAME', 'postgres'),
         user: env('DATABASE_USERNAME', 'postgres'),
         password: env('DATABASE_PASSWORD', ''),
-        ssl: env.bool('DATABASE_SSL', true)
-          ? { require: true, rejectUnauthorized: false }
-          : false,
+        ssl: {
+          require: true,
+          rejectUnauthorized: false,
+        },
         schema: env('DATABASE_SCHEMA', 'public'),
       },
       pool: { min: 2, max: 10 },
@@ -43,11 +29,7 @@ module.exports = ({ env }) => {
 
     sqlite: {
       connection: {
-        filename: path.join(
-          __dirname,
-          '..',
-          env('DATABASE_FILENAME', '.tmp/data.db')
-        ),
+        filename: path.join(__dirname, '..', env('DATABASE_FILENAME', '.tmp/data.db')),
       },
       useNullAsDefault: true,
     },
