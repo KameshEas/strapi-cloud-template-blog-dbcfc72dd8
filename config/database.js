@@ -5,15 +5,23 @@ module.exports = ({ env }) => {
   const client = env('DATABASE_CLIENT', 'sqlite');
 
   let caCert;
-  const caPath = env('DATABASE_SSL_CA')
-    ? path.resolve(__dirname, '..', env('DATABASE_SSL_CA'))
-    : null;
 
-  if (caPath && fs.existsSync(caPath)) {
-    caCert = fs.readFileSync(caPath);
-  }
-  else if (env('DATABASE_SSL_CA_BASE64')) {
-    caCert = Buffer.from(env('DATABASE_SSL_CA_BASE64'), 'base64');
+  try {
+    const caPath = env('DATABASE_SSL_CA')
+      ? path.resolve(__dirname, '..', env('DATABASE_SSL_CA'))
+      : path.resolve(__dirname, '..', '.certs/prod-ca-2021.crt'); 
+
+    if (fs.existsSync(caPath)) {
+      caCert = fs.readFileSync(caPath);
+      console.log(`✅ Loaded SSL certificate from file: ${caPath}`);
+    } else if (env('DATABASE_SSL_CA_BASE64')) {
+      caCert = Buffer.from(env('DATABASE_SSL_CA_BASE64'), 'base64');
+      console.log('✅ Loaded SSL certificate from Base64 environment variable');
+    } else {
+      console.warn('⚠️ No SSL certificate found — falling back to unverified SSL');
+    }
+  } catch (err) {
+    console.error('❌ Failed to load SSL certificate:', err.message);
   }
 
   const connections = {
@@ -27,8 +35,8 @@ module.exports = ({ env }) => {
         password: env('DATABASE_PASSWORD', ''),
         ssl: env.bool('DATABASE_SSL', true)
           ? caCert
-            ? { ca: caCert, rejectUnauthorized: true }
-            : { require: true, rejectUnauthorized: false }
+            ? { ca: caCert, rejectUnauthorized: true } 
+            : { require: true, rejectUnauthorized: false } 
           : false,
         schema: env('DATABASE_SCHEMA', 'public'),
       },
@@ -37,7 +45,11 @@ module.exports = ({ env }) => {
 
     sqlite: {
       connection: {
-        filename: path.join(__dirname, '..', env('DATABASE_FILENAME', '.tmp/data.db')),
+        filename: path.join(
+          __dirname,
+          '..',
+          env('DATABASE_FILENAME', '.tmp/data.db')
+        ),
       },
       useNullAsDefault: true,
     },
@@ -47,7 +59,7 @@ module.exports = ({ env }) => {
     connection: {
       client,
       ...connections[client],
-      acquireConnectionTimeout: 60000,
+      acquireConnectionTimeout: env.int('DATABASE_CONNECTION_TIMEOUT', 60000),
     },
   };
 };
